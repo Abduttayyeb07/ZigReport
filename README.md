@@ -34,14 +34,17 @@ Edit `.env` with your actual values:
 
 | Variable | Description |
 |---|---|
-| `DB_HOST` | PostgreSQL host |
+| `SSH_HOST` | SSH host used to reach the database server |
+| `SSH_PORT` | SSH port, usually `22` |
+| `SSH_USER` | SSH username |
+| `SSH_PRIVATE_KEY_PATH` | Local path to the SSH private key |
+| `SSH_PASSPHRASE` | Optional SSH key passphrase |
+| `DB_HOST` | PostgreSQL host as seen from the SSH server |
 | `DB_PORT` | PostgreSQL port (default: 5432) |
 | `DB_NAME` | Database name |
 | `DB_USER` | Database user |
 | `DB_PASS` | Database password |
-| `DB_SSL` | Set to `false` to disable SSL (default: enabled) |
 | `TELEGRAM_BOT_TOKEN` | Bot token from @BotFather |
-| `TELEGRAM_CHAT_ID` | Target chat/group ID |
 | `WALLET_REPORT_CRON` | Cron for Report 1 (default: `0 9 * * *`) |
 | `STAKING_REPORT_CRON` | Cron for Report 2 (default: `5 9 * * *`) |
 
@@ -56,6 +59,21 @@ npm run test:db
 ```bash
 npm start
 ```
+
+## Docker
+
+Build and run with Docker Compose:
+
+```bash
+docker compose up --build -d
+```
+
+Notes:
+
+- `.env` is loaded into the container through `env_file`.
+- `SSH_PRIVATE_KEY_PATH` in `.env` must point to a real key file on the host.
+- That key is mounted read-only inside the container at `/run/secrets/zig_monitor_ssh_key`.
+- Update `.env` so `SSH_PRIVATE_KEY_PATH=/run/secrets/zig_monitor_ssh_key` when running in Docker.
 
 ## Project Structure
 
@@ -73,7 +91,7 @@ index.js         - Entry point
 
 ## Deployment
 
-Works on any Node.js host: Railway, Render, VPS, etc.
+Works on any Node.js host or Docker-capable VPS.
 
 ```bash
 # With PM2

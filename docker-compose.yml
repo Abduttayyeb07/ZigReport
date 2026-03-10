@@ -1,0 +1,12 @@
+services:
+  zig-monitor-bot:
+    build: .
+    container_name: zig-monitor-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      SSH_PRIVATE_KEY_PATH: /run/secrets/zig_monitor_ssh_key
+    volumes:
+      - ./subscribers.json:/app/subscribers.json
+      - ${SSH_PRIVATE_KEY_PATH:?Set SSH_PRIVATE_KEY_PATH in .env}:/run/secrets/zig_monitor_ssh_key:ro
