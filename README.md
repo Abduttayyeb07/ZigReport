@@ -4,14 +4,14 @@ Telegram bot for monitoring ZIG wallet movement and staking activity from a Post
 
 ## What It Shows
 
-- `🟢 Balance Increases (24h)` - top 5 wallets with the biggest ZIG accumulation
-- `🔴 Balance Decreases (24h)` - top 5 wallets with the biggest ZIG outflow
-- `📈 Staking Increases (24h)` - significant net stake growth per wallet
-- `📉 Unstakes (24h)` - significant net unstake activity per wallet
-- `🧮 Staked vs Unstaked (24h)` - total staked, total unstaked, net flow, wallet counts
-- `⚡ Largest Stake (24h)` - biggest single stake event
-- `⚡ Largest Unstake (24h)` - biggest single unstake event
-- `🏆 Top Wallets Stake (24h)` - wallets with the highest total stake added
+- `Balance Increases (24h)` - top 5 wallets with the biggest ZIG accumulation
+- `Balance Decreases (24h)` - top 5 wallets with the biggest ZIG outflow
+- `Staking Increases (24h)` - significant net stake growth per wallet
+- `Unstakes (24h)` - significant net unstake activity per wallet
+- `Staked vs Unstaked (24h)` - total staked, total unstaked, net flow, wallet counts
+- `Largest Stake (24h)` - biggest single stake event
+- `Largest Unstake (24h)` - biggest single unstake event
+- `Top Wallets Stake (24h)` - wallets with the highest total stake added
 
 Notes:
 
@@ -140,17 +140,17 @@ docker compose logs -f --tail=50 zig-monitor-bot
 
 ```text
 src/
-  bot.js         Telegram bot, command panel, shortcut commands
-  db.js          SSH tunnel + PostgreSQL pool
-  formatters.js  Telegram message formatting
-  queries.js     SQL queries for wallet and staking reports
-  reports.js     Report orchestration per section
-  scheduler.js   Daily cron jobs
-index.js         Application entry point
-.env.example     Environment template
-Dockerfile       Container image definition
+  bot.js          Telegram bot, command panel, shortcut commands
+  db.js           SSH tunnel + PostgreSQL pool
+  formatters.js   Telegram message formatting
+  queries.js      SQL queries for wallet and staking reports
+  reports.js      Report orchestration per section
+  scheduler.js    Daily cron jobs
+index.js          Application entry point
+.env.example      Environment template
+Dockerfile        Container image definition
 docker-compose.yml Container runtime config
-subscribers.json Subscription persistence
+subscribers.json  Subscription persistence
 ```
 
 ## Publish Safely
@@ -163,7 +163,7 @@ Before pushing this repo publicly:
 
 ## Behavior Notes
 
-- Query failures are returned as Telegram alerts instead of crashing the process
+- query failures are returned as Telegram alerts instead of crashing the process
 - Telegram send failures retry once after 30 seconds
 - shutdown closes the PostgreSQL pool and SSH tunnel
 - unhandled promise rejections are logged at process level
