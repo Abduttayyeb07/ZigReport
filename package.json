@@ -1,0 +1,17 @@
+{
+  "name": "zig-monitor-bot",
+  "version": "1.0.0",
+  "description": "Telegram bot for ZIG blockchain wallet and staking monitoring",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test:db": "node -e \"require('dotenv').config(); const db = require('./src/db'); db.init().then(() => db.query('SELECT 1 AS ok')).then(r => { console.log('DB connected:', r.rows[0]); return db.close(); }).then(() => process.exit(0)).catch(e => { console.error('DB failed:', e.message); process.exit(1); })\""
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "node-cron": "^3.0.3",
+    "node-telegram-bot-api": "^0.66.0",
+    "pg": "^8.13.1",
+    "ssh2": "^1.17.0"
+  }
+}
