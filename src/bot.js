@@ -37,6 +37,21 @@ const lastRun = {
   staking: null,
 };
 
+const BOT_COMMANDS = [
+  { command: 'start', description: 'Open the command panel' },
+  { command: 'menu', description: 'Show report buttons' },
+  { command: 'increases', description: 'Top wallet balance increases' },
+  { command: 'decreases', description: 'Top wallet balance decreases' },
+  { command: 'stake_up', description: 'Significant staking increases' },
+  { command: 'unstakes', description: 'Significant unstake activity' },
+  { command: 'net_flow', description: 'Staked vs unstaked totals' },
+  { command: 'max_stake', description: 'Largest single stake event' },
+  { command: 'max_unstake', description: 'Largest single unstake event' },
+  { command: 'top_stakers', description: 'Top wallets increasing stake' },
+  { command: 'status', description: 'Check bot uptime and report status' },
+  { command: 'stop', description: 'Unsubscribe from scheduled reports' },
+];
+
 function loadSubscribers() {
   try {
     if (fs.existsSync(SUBSCRIBERS_FILE)) {
@@ -131,9 +146,20 @@ function getBot() {
   if (!bot) {
     bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: true });
     registerCommands(bot);
+    registerBotShortcuts(bot);
     console.log('[Bot] Telegram bot started with polling');
   }
   return bot;
+}
+
+function registerBotShortcuts(currentBot) {
+  currentBot.setMyCommands(BOT_COMMANDS)
+    .then(() => {
+      console.log('[Bot] Telegram command shortcuts registered');
+    })
+    .catch((err) => {
+      console.error('[Bot] Failed to register Telegram commands:', err.message);
+    });
 }
 
 function registerCommands(currentBot) {
@@ -164,6 +190,38 @@ function registerCommands(currentBot) {
   currentBot.onText(/\/staking_report/, async (msg) => {
     await sendReportByKey(msg.chat.id, 'full_staking');
     setLastRun('staking');
+  });
+
+  currentBot.onText(/\/increases/, async (msg) => {
+    await sendReportByKey(msg.chat.id, 'balance_increases');
+  });
+
+  currentBot.onText(/\/decreases/, async (msg) => {
+    await sendReportByKey(msg.chat.id, 'balance_decreases');
+  });
+
+  currentBot.onText(/\/stake_up/, async (msg) => {
+    await sendReportByKey(msg.chat.id, 'net_staking_increases');
+  });
+
+  currentBot.onText(/\/unstakes/, async (msg) => {
+    await sendReportByKey(msg.chat.id, 'net_unstakes');
+  });
+
+  currentBot.onText(/\/net_flow/, async (msg) => {
+    await sendReportByKey(msg.chat.id, 'staking_summary');
+  });
+
+  currentBot.onText(/\/max_stake/, async (msg) => {
+    await sendReportByKey(msg.chat.id, 'largest_stake');
+  });
+
+  currentBot.onText(/\/max_unstake/, async (msg) => {
+    await sendReportByKey(msg.chat.id, 'largest_unstake');
+  });
+
+  currentBot.onText(/\/top_stakers/, async (msg) => {
+    await sendReportByKey(msg.chat.id, 'top_stakers');
   });
 
   currentBot.onText(/\/status/, async (msg) => {
