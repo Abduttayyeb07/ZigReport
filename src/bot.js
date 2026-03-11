@@ -1,4 +1,4 @@
-const TelegramBot = require('node-telegram-bot-api');
+const { Telegraf, Markup } = require('telegraf');
 const fs = require('fs');
 const path = require('path');
 const {
@@ -31,12 +31,6 @@ const REPORT_HANDLERS = {
   wallet_holdings: generateWalletHoldingsReport,
 };
 
-let bot;
-const lastRun = {
-  wallet: null,
-  staking: null,
-};
-
 const BOT_COMMANDS = [
   { command: 'start', description: 'Open the command panel' },
   { command: 'menu', description: 'Show report buttons' },
@@ -51,6 +45,13 @@ const BOT_COMMANDS = [
   { command: 'status', description: 'Check bot uptime and report status' },
   { command: 'stop', description: 'Unsubscribe from scheduled reports' },
 ];
+
+let bot;
+let launched = false;
+const lastRun = {
+  wallet: null,
+  staking: null,
+};
 
 function loadSubscribers() {
   try {
@@ -112,48 +113,53 @@ function getMenuText() {
 }
 
 function getMenuKeyboard() {
-  return {
-    inline_keyboard: [
-      [
-        { text: '🟢 Balance Increases (24h)', callback_data: 'report:balance_increases' },
-        { text: '🔴 Balance Decreases (24h)', callback_data: 'report:balance_decreases' },
-      ],
-      [
-        { text: '📈 Staking Increases (24h)', callback_data: 'report:net_staking_increases' },
-        { text: '📉 Unstakes (24h)', callback_data: 'report:net_unstakes' },
-      ],
-      [
-        { text: '🧮 Staked vs Unstaked (24h)', callback_data: 'report:staking_summary' },
-        { text: '⚡ Largest Stake (24h)', callback_data: 'report:largest_stake' },
-      ],
-      [
-        { text: '⚡ Largest Unstake (24h)', callback_data: 'report:largest_unstake' },
-        { text: '🏆 Top Wallets Stake (24h)', callback_data: 'report:top_stakers' },
-      ],
+  return Markup.inlineKeyboard([
+    [
+      Markup.button.callback('🟢 Balance Increases (24h)', 'report:balance_increases'),
+      Markup.button.callback('🔴 Balance Decreases (24h)', 'report:balance_decreases'),
     ],
-  };
+    [
+      Markup.button.callback('📈 Staking Increases (24h)', 'report:net_staking_increases'),
+      Markup.button.callback('📉 Unstakes (24h)', 'report:net_unstakes'),
+    ],
+    [
+      Markup.button.callback('🧮 Staked vs Unstaked (24h)', 'report:staking_summary'),
+      Markup.button.callback('⚡ Largest Stake (24h)', 'report:largest_stake'),
+    ],
+    [
+      Markup.button.callback('⚡ Largest Unstake (24h)', 'report:largest_unstake'),
+      Markup.button.callback('🏆 Top Wallets Stake (24h)', 'report:top_stakers'),
+    ],
+  ]);
 }
 
 async function sendMenu(chatId, text = getMenuText()) {
-  const b = getBot();
-  await b.sendMessage(chatId, text, {
+  const currentBot = getBot();
+  await currentBot.telegram.sendMessage(chatId, text, {
     parse_mode: 'HTML',
-    reply_markup: getMenuKeyboard(),
+    ...getMenuKeyboard(),
   });
 }
 
 function getBot() {
   if (!bot) {
-    bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: true });
+    bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
     registerCommands(bot);
     registerBotShortcuts(bot);
-    console.log('[Bot] Telegram bot started with polling');
+    if (!launched) {
+      bot.launch().then(() => {
+        console.log('[Bot] Telegram bot started with polling');
+      }).catch((err) => {
+        console.error('[Bot] Failed to launch bot:', err.message);
+      });
+      launched = true;
+    }
   }
   return bot;
 }
 
 function registerBotShortcuts(currentBot) {
-  currentBot.setMyCommands(BOT_COMMANDS)
+  currentBot.telegram.setMyCommands(BOT_COMMANDS)
     .then(() => {
       console.log('[Bot] Telegram command shortcuts registered');
     })
@@ -162,73 +168,107 @@ function registerBotShortcuts(currentBot) {
     });
 }
 
+function getChatId(ctx) {
+  return ctx.chat?.id;
+}
+
 function registerCommands(currentBot) {
-  currentBot.onText(/\/start/, async (msg) => {
-    const chatId = msg.chat.id;
+  currentBot.command('start', async (ctx) => {
+    const chatId = getChatId(ctx);
+    if (!chatId) return;
     addSubscriber(chatId);
     await sendMenu(chatId);
   });
 
-  currentBot.onText(/\/menu|\/reports/, async (msg) => {
-    await sendMenu(msg.chat.id);
+  currentBot.command('menu', async (ctx) => {
+    const chatId = getChatId(ctx);
+    if (!chatId) return;
+    await sendMenu(chatId);
   });
 
-  currentBot.onText(/\/stop/, async (msg) => {
-    const chatId = msg.chat.id;
+  currentBot.command('reports', async (ctx) => {
+    const chatId = getChatId(ctx);
+    if (!chatId) return;
+    await sendMenu(chatId);
+  });
+
+  currentBot.command('stop', async (ctx) => {
+    const chatId = getChatId(ctx);
+    if (!chatId) return;
     const removed = removeSubscriber(chatId);
     const text = removed
       ? '<b>Unsubscribed.</b> Send /start if you want scheduled reports again.'
       : 'You are not subscribed. Send /start to subscribe.';
-    await currentBot.sendMessage(chatId, text, { parse_mode: 'HTML' });
+    await currentBot.telegram.sendMessage(chatId, text, { parse_mode: 'HTML' });
   });
 
-  currentBot.onText(/\/wallet_report/, async (msg) => {
-    await sendReportByKey(msg.chat.id, 'full_wallet');
+  currentBot.command('wallet_report', async (ctx) => {
+    const chatId = getChatId(ctx);
+    if (!chatId) return;
+    await sendReportByKey(chatId, 'full_wallet');
     setLastRun('wallet');
   });
 
-  currentBot.onText(/\/staking_report/, async (msg) => {
-    await sendReportByKey(msg.chat.id, 'full_staking');
+  currentBot.command('staking_report', async (ctx) => {
+    const chatId = getChatId(ctx);
+    if (!chatId) return;
+    await sendReportByKey(chatId, 'full_staking');
     setLastRun('staking');
   });
 
-  currentBot.onText(/\/increases/, async (msg) => {
-    await sendReportByKey(msg.chat.id, 'balance_increases');
+  currentBot.command('increases', async (ctx) => {
+    const chatId = getChatId(ctx);
+    if (!chatId) return;
+    await sendReportByKey(chatId, 'balance_increases');
   });
 
-  currentBot.onText(/\/decreases/, async (msg) => {
-    await sendReportByKey(msg.chat.id, 'balance_decreases');
+  currentBot.command('decreases', async (ctx) => {
+    const chatId = getChatId(ctx);
+    if (!chatId) return;
+    await sendReportByKey(chatId, 'balance_decreases');
   });
 
-  currentBot.onText(/\/stake_up/, async (msg) => {
-    await sendReportByKey(msg.chat.id, 'net_staking_increases');
+  currentBot.command('stake_up', async (ctx) => {
+    const chatId = getChatId(ctx);
+    if (!chatId) return;
+    await sendReportByKey(chatId, 'net_staking_increases');
   });
 
-  currentBot.onText(/\/unstakes/, async (msg) => {
-    await sendReportByKey(msg.chat.id, 'net_unstakes');
+  currentBot.command('unstakes', async (ctx) => {
+    const chatId = getChatId(ctx);
+    if (!chatId) return;
+    await sendReportByKey(chatId, 'net_unstakes');
   });
 
-  currentBot.onText(/\/net_flow/, async (msg) => {
-    await sendReportByKey(msg.chat.id, 'staking_summary');
+  currentBot.command('net_flow', async (ctx) => {
+    const chatId = getChatId(ctx);
+    if (!chatId) return;
+    await sendReportByKey(chatId, 'staking_summary');
   });
 
-  currentBot.onText(/\/max_stake/, async (msg) => {
-    await sendReportByKey(msg.chat.id, 'largest_stake');
+  currentBot.command('max_stake', async (ctx) => {
+    const chatId = getChatId(ctx);
+    if (!chatId) return;
+    await sendReportByKey(chatId, 'largest_stake');
   });
 
-  currentBot.onText(/\/max_unstake/, async (msg) => {
-    await sendReportByKey(msg.chat.id, 'largest_unstake');
+  currentBot.command('max_unstake', async (ctx) => {
+    const chatId = getChatId(ctx);
+    if (!chatId) return;
+    await sendReportByKey(chatId, 'largest_unstake');
   });
 
-  currentBot.onText(/\/top_stakers/, async (msg) => {
-    await sendReportByKey(msg.chat.id, 'top_stakers');
+  currentBot.command('top_stakers', async (ctx) => {
+    const chatId = getChatId(ctx);
+    if (!chatId) return;
+    await sendReportByKey(chatId, 'top_stakers');
   });
 
-  currentBot.onText(/\/status/, async (msg) => {
-    const chatId = msg.chat.id;
+  currentBot.command('status', async (ctx) => {
+    const chatId = getChatId(ctx);
+    if (!chatId) return;
     const walletTime = lastRun.wallet ? lastRun.wallet.toISOString() : 'Never';
     const stakingTime = lastRun.staking ? lastRun.staking.toISOString() : 'Never';
-
     const statusMsg = [
       '<b>Bot Status</b>',
       `Last Wallet Report: <code>${walletTime}</code>`,
@@ -236,21 +276,14 @@ function registerCommands(currentBot) {
       `Subscribers: ${subscribers.size}`,
       `Uptime: ${formatUptime(process.uptime())}`,
     ].join('\n');
-
-    await currentBot.sendMessage(chatId, statusMsg, { parse_mode: 'HTML' });
+    await currentBot.telegram.sendMessage(chatId, statusMsg, { parse_mode: 'HTML' });
   });
 
-  currentBot.on('callback_query', async (query) => {
-    const chatId = query.message?.chat?.id;
-    const data = query.data || '';
-
-    if (!chatId || !data.startsWith('report:')) {
-      await currentBot.answerCallbackQuery(query.id);
-      return;
-    }
-
-    const key = data.replace('report:', '');
-    await currentBot.answerCallbackQuery(query.id, { text: 'Loading report...' });
+  currentBot.action(/report:(.+)/, async (ctx) => {
+    const chatId = getChatId(ctx);
+    const key = ctx.match[1];
+    await ctx.answerCbQuery('Loading report...');
+    if (!chatId) return;
     await sendReportByKey(chatId, key);
   });
 }
@@ -264,7 +297,7 @@ function formatUptime(seconds) {
 }
 
 async function sendToChat(chatId, text, options = {}) {
-  const b = getBot();
+  const currentBot = getBot();
   const baseOptions = {
     parse_mode: 'HTML',
     disable_web_page_preview: true,
@@ -275,7 +308,7 @@ async function sendToChat(chatId, text, options = {}) {
     const chunks = splitMessage(text);
     for (let index = 0; index < chunks.length; index += 1) {
       const sendOptions = index === 0 ? baseOptions : { ...baseOptions, reply_markup: undefined };
-      await b.sendMessage(chatId, chunks[index], sendOptions);
+      await currentBot.telegram.sendMessage(chatId, chunks[index], sendOptions);
     }
   } catch (err) {
     console.error(`[Bot] Send to ${chatId} failed, retrying in 30s:`, err.message);
@@ -284,7 +317,7 @@ async function sendToChat(chatId, text, options = {}) {
       const chunks = splitMessage(text);
       for (let index = 0; index < chunks.length; index += 1) {
         const sendOptions = index === 0 ? baseOptions : { ...baseOptions, reply_markup: undefined };
-        await b.sendMessage(chatId, chunks[index], sendOptions);
+        await currentBot.telegram.sendMessage(chatId, chunks[index], sendOptions);
       }
     } catch (retryErr) {
       console.error(`[Bot] Retry to ${chatId} also failed:`, retryErr.message);
@@ -357,6 +390,7 @@ async function broadcastMessage(text) {
     console.log('[Bot] No subscribers to broadcast to');
     return;
   }
+
   console.log(`[Bot] Broadcasting to ${chatIds.length} subscribers`);
   for (const chatId of chatIds) {
     await sendToChat(chatId, text);
