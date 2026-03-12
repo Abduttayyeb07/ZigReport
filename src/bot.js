@@ -369,6 +369,7 @@ async function sendReportByKey(chatId, key) {
   const handler = REPORT_HANDLERS[key];
   if (!handler) {
     await sendToChat(chatId, 'Unknown report requested.');
+    await sendMenu(chatId);
     return;
   }
 
@@ -378,9 +379,11 @@ async function sendReportByKey(chatId, key) {
     for (const err of errors) {
       await sendToChat(chatId, err);
     }
+    await sendMenu(chatId);
   } catch (err) {
     console.error(`[Bot] Report ${key} error:`, err.message);
     await sendToChat(chatId, `⚠️ Report failed: ${err.message}`);
+    await sendMenu(chatId);
   }
 }
 

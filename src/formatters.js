@@ -21,6 +21,22 @@ function safe(value) {
     .replace(/>/g, '&gt;');
 }
 
+function formatTokenDenom(denom) {
+  const value = String(denom ?? 'unknown');
+
+  if (value.startsWith('coin.zig') && value.includes('.')) {
+    return value.split('.').pop();
+  }
+
+  if (value.startsWith('ibc/')) {
+    const hash = value.slice(4);
+    if (hash.length <= 7) return value;
+    return `ibc/${hash.slice(0, 3)}...${hash.slice(-4)}`;
+  }
+
+  return value;
+}
+
 function formatTimestamp(value) {
   if (!value) return 'N/A';
   const date = new Date(value);
@@ -183,7 +199,7 @@ function formatWalletHoldings(holdings) {
         tokens: [],
       });
     }
-    grouped.get(row.wallet).tokens.push(`${safe(row.token_denom)}: <b>${fmt(row.token_balance)}</b>`);
+    grouped.get(row.wallet).tokens.push(`${safe(formatTokenDenom(row.token_denom))}: <b>${fmt(row.token_balance)}</b>`);
   }
 
   const rows = Array.from(grouped.entries()).map(([wallet, data]) => ({
