@@ -7,7 +7,6 @@ const { init, query } = require('./src/db');
 async function main() {
   // Validate required env vars
   const required = [
-    'SSH_HOST', 'SSH_USER', 'SSH_PRIVATE_KEY_PATH',
     'DB_HOST', 'DB_PORT', 'DB_NAME', 'DB_USER', 'DB_PASS',
     'TELEGRAM_BOT_TOKEN',
   ];
